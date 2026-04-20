@@ -52,78 +52,30 @@ const MAX_PLAYERS = 6;
 let bgMusic = null;
 let isMuted = false;
 let resultSoundPlayed = false;
+let currentVolume = 0.17;
 
 function initBgMusic() {
   if (bgMusic) return;
-  bgMusic = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+  bgMusic = new Audio('musicadefondo.mp3');
   bgMusic.loop = true;
-  bgMusic.volume = 0;
-
-  // Create ambient music with Web Audio API
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const gainNode = ctx.createGain();
-  gainNode.gain.value = 0.08;
-  gainNode.connect(ctx.destination);
-
-  // Ambient pad - low drone
-  const notes = [130.81, 164.81, 196.00, 246.94]; // C3, E3, G3, B3
-  const oscillators = [];
-  notes.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    osc.type = i === 0 ? 'sine' : 'triangle';
-    osc.frequency.value = freq;
-    const oscGain = ctx.createGain();
-    oscGain.gain.value = i === 0 ? 0.4 : 0.15;
-    osc.connect(oscGain);
-    oscGain.connect(gainNode);
-    osc.start();
-    oscillators.push(osc);
-
-    // Slow frequency modulation for eerie feel
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.1 + i * 0.05;
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 1.5;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    lfo.start();
-    oscillators.push(lfo);
-  });
-
-  // Noise texture
-  const bufferSize = ctx.sampleRate * 2;
-  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const noiseData = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) noiseData[i] = (Math.random() * 2 - 1) * 0.02;
-  const noise = ctx.createBufferSource();
-  noise.buffer = noiseBuffer;
-  noise.loop = true;
-  const noiseFilter = ctx.createBiquadFilter();
-  noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = 400;
-  noise.connect(noiseFilter);
-  noiseFilter.connect(gainNode);
-  noise.start();
-
-  bgMusic._ctx = ctx;
-  bgMusic._gain = gainNode;
-  bgMusic._oscs = oscillators;
-  bgMusic._noise = noise;
+  bgMusic.volume = currentVolume;
 }
 
 function toggleMute() {
   isMuted = !isMuted;
   if (muteBtn) muteBtn.textContent = isMuted ? '🔇' : '🔊';
-  if (bgMusic && bgMusic._gain) {
-    bgMusic._gain.gain.value = isMuted ? 0 : 0.08;
+  if (bgMusic) {
+    bgMusic.volume = isMuted ? 0 : currentVolume;
   }
 }
+
+
 
 function startBgMusic() {
   try {
     initBgMusic();
-    if (bgMusic._ctx.state === 'suspended') bgMusic._ctx.resume();
-    if (!isMuted && bgMusic._gain) bgMusic._gain.gain.value = 0.08;
+    if (!isMuted) bgMusic.volume = currentVolume;
+    bgMusic.play().catch(() => {});
   } catch (e) { /* ignore audio errors */ }
 }
 
