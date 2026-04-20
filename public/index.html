@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virus 2 · Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <canvas id="bg-three"></canvas>
+  <div class="container">
+    <header id="mainHeader">
+      <div class="logo-wrap">
+        <span class="bio-icon">&#9763;</span>
+        <h1>VIRUS <span class="v2">2</span></h1>
+        <span class="bio-icon">&#9763;</span>
+      </div>
+      <p class="tagline">Prototipo Online &mdash; Completa 4 órganos sanos antes que tu rival</p>
+    </header>
+
+    <!-- LOBBY -->
+    <section id="lobby">
+      <div class="lobby-grid">
+        <div class="lobby-card">
+          <div class="lobby-card-icon">🧬</div>
+          <h2>Crear sala</h2>
+          <label>Tu nombre de laboratorio</label>
+          <input id="playerName" placeholder="Dr. Virus" maxlength="20" />
+          <button id="createRoomBtn" class="btn btn-green">&#9654; Nueva sala</button>
+        </div>
+        <div class="lobby-divider">VS</div>
+        <div class="lobby-card">
+          <div class="lobby-card-icon">🔬</div>
+          <h2>Unirse a sala</h2>
+          <label>Tu nombre</label>
+          <input id="joinName" placeholder="Dr. Plague" maxlength="20" />
+          <label>Código de sala</label>
+          <input id="roomCode" placeholder="ABCDE" maxlength="5" />
+          <button id="joinRoomBtn" class="btn btn-purple">&#9654; Unirse</button>
+        </div>
+      </div>
+      <div id="lobbyInfo" class="notice hidden"></div>
+    </section>
+
+    <!-- WAITING ROOM -->
+    <section id="waitingRoom" class="hidden">
+      <div class="waiting-container">
+        <div class="waiting-header">
+          <span class="waiting-pulse">🧪</span>
+          <h2>Sala de espera</h2>
+        </div>
+        <div class="room-code-big">
+          <span class="code-label">Código de sala</span>
+          <div class="code-display">
+            <span id="waitRoomCode" class="code-text">-----</span>
+            <button class="btn-copy" onclick="copyRoomCode()" title="Copiar código">
+              <span class="copy-icon">📋</span>
+              <span class="copy-label">Copiar</span>
+            </button>
+          </div>
+          <p class="code-hint">Comparte este código con tus compañeros para que se unan</p>
+        </div>
+        <div class="players-lobby">
+          <h3>🧑‍🔬 Jugadores conectados</h3>
+          <div id="playersList" class="players-grid"></div>
+        </div>
+        <p id="waitingHint" class="waiting-hint">Necesitan al menos 2 jugadores para iniciar...</p>
+        <button id="leaveWaitingBtn" class="btn btn-outline btn-leave" style="margin-top:16px;">🚪 Salir de la sala</button>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="game" class="hidden">
+      <div class="topbar">
+        <div class="topbar-item">
+          <span class="topbar-label">SALA</span>
+          <div class="topbar-code">
+            <span id="roomIdText" class="topbar-value accent-green">-</span>
+            <button class="btn-copy-sm" onclick="copyRoomCode()" title="Copiar código">📋</button>
+          </div>
+        </div>
+        <div class="topbar-item">
+          <span class="topbar-label">JUGADORES</span>
+          <span id="playerCountText" class="topbar-value">0</span>
+        </div>
+        <div class="topbar-item">
+          <span class="topbar-label">TURNO</span>
+          <span id="turnText" class="topbar-value">-</span>
+        </div>
+        <div class="topbar-item">
+          <span class="topbar-label">MAZO</span>
+          <span id="deckText" class="topbar-value">0</span>
+        </div>
+        <div class="topbar-item">
+          <span class="topbar-label">DESCARTE</span>
+          <span id="discardText" class="topbar-value">0</span>
+        </div>
+        <button id="restartBtn" class="btn btn-outline hidden">&#8635; Nueva partida</button>
+        <button id="leaveRoomBtn" class="btn btn-outline btn-leave" title="Salir de la sala">🚪 Salir</button>
+        <button id="muteBtn" class="btn btn-outline" title="Silenciar música">🔊</button>
+      </div>
+
+      <div id="gameInfo" class="notice hidden"></div>
+
+      <div id="joinBanner" class="join-banner hidden">
+        <span class="join-banner-icon">🔓</span>
+        <span>Pueden unirse más jugadores &mdash; Código:</span>
+        <strong id="joinBannerCode">-----</strong>
+        <button class="btn-copy-sm" onclick="copyRoomCode()" title="Copiar">📋</button>
+      </div>
+
+      <!-- 3-COLUMN LAYOUT -->
+      <div class="game-columns">
+        <!-- LEFT SIDEBAR: Rules + Log -->
+        <aside class="sidebar sidebar-left">
+          <div class="sidebar-section rules-sidebar">
+            <h3 class="sidebar-title">&#128214; Reglas</h3>
+            <div class="rules-list">
+              <div class="rule-mini"><span>🎯</span><div><strong>Objetivo:</strong> 4 órganos sanos distintos.</div></div>
+              <div class="rule-mini"><span>🃏</span><div><strong>Turno:</strong> Juega o descarta 1 carta. Robas hasta 3.</div></div>
+              <div class="rule-mini"><span>🫀</span><div><strong>Órganos:</strong> Baja a tu mesa. 1 por color.</div></div>
+              <div class="rule-mini"><span>💊</span><div><strong>Medicina:</strong> Cura/protege. 2 = inmune.</div></div>
+              <div class="rule-mini"><span>🦠</span><div><strong>Virus:</strong> Infecta rival. 2 = destruye.</div></div>
+              <div class="rule-mini"><span>🖱️</span><div><strong>Controles:</strong> Arrastra a rival, abajo o 🗑.</div></div>
+            </div>
+          </div>
+          <div class="sidebar-section log-sidebar">
+            <h3 class="sidebar-title">&#128203; Registro</h3>
+            <ul id="logList" class="log-list"></ul>
+          </div>
+        </aside>
+
+        <!-- CENTER: Game board -->
+        <main class="game-center">
+          <div class="arena-board">
+            <!-- OPPONENTS (dynamic) -->
+            <div id="opponentsArea" class="opponents-area"></div>
+
+            <!-- CENTER -->
+            <div class="arena-center">
+              <div class="pile-stack">
+                <div class="pile-card pile-back"></div>
+                <div class="pile-card pile-middle"></div>
+                <div class="pile-card pile-front">V2</div>
+              </div>
+              <div class="turn-arrows">
+                <span class="ring-arrow">↺</span>
+                <span class="ring-arrow">↻</span>
+              </div>
+            </div>
+
+            <!-- MY ORGANS -->
+            <div class="drop-zone drop-zone-self" id="dropSelf">
+              <span class="drop-hint">⬇ Arrastra aquí para JUGAR en tus órganos</span>
+              <div id="myOrgans" class="organs-row"></div>
+            </div>
+
+            <!-- MY HAND -->
+            <div class="arena-side arena-bottom">
+              <div class="player-plate self-plate">
+                <span class="plate-label">Tú</span>
+                <h2 id="meTitle" class="plate-name">Tu laboratorio</h2>
+                <button id="discardThreeBtn" class="btn btn-outline btn-discard-three hidden" title="Descarta tu mano y roba 3 nuevas (pierdes turno)">♻ Cambiar mano</button>
+              </div>
+              <div id="myHand" class="hand-fan"></div>
+              <div class="discard-zone" id="discardZone">
+                <span>🗑 Descartar</span>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: Chat -->
+        <aside class="sidebar sidebar-right">
+          <div class="sidebar-section chat-sidebar">
+            <h3 class="sidebar-title">💬 Chat</h3>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input-row">
+              <input id="chatInput" type="text" placeholder="Escribe un mensaje..." maxlength="200" autocomplete="off" />
+              <button id="chatSendBtn" class="btn-chat-send" title="Enviar">➤</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modals -->
+  <div id="explainModal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeExplain()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeExplain()">&times;</button>
+      <div id="explainIcon" class="modal-icon"></div>
+      <h3 id="explainTitle"></h3>
+      <p id="explainText"></p>
+    </div>
+  </div>
+
+  <div id="specialModal" class="modal hidden">
+    <div class="modal-overlay" onclick="cancelSpecial()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="cancelSpecial()">&times;</button>
+      <h3 id="specialTitle">Elige opciones</h3>
+      <div id="specialBody"></div>
+      <button class="btn btn-green" style="margin-top:16px" onclick="confirmSpecial()">Confirmar</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="/three-bg.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

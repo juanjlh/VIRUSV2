@@ -1,0 +1,9 @@
+{
+  "name": "virusv2-simple-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Prototipo simple online inspirado en Virus 2",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
