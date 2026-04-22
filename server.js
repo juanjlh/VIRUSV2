@@ -63,8 +63,21 @@ function createPlayer(name, id) {
     id,
     name,
     hand: [],
-    organs: []
+    organs: [],
+    hp: 30,
+    eliminated: false
   };
+}
+
+function advanceTurn(room) {
+  const total = room.players.length;
+  let next = (room.turnIndex + 1) % total;
+  let steps = 0;
+  while (room.players[next].eliminated && steps < total) {
+    next = (next + 1) % total;
+    steps += 1;
+  }
+  room.turnIndex = next;
 }
 
 function organStatusName(level) {
@@ -92,10 +105,25 @@ function countHealthyDifferentOrgans(player) {
 }
 
 function checkWinner(room) {
-  const winner = room.players.find((player) => countHealthyDifferentOrgans(player) >= 4);
+  const alive = room.players.filter((p) => !p.eliminated);
+  if (alive.length === 1) {
+    room.winner = alive[0].id;
+    addLog(room, `💀 ${alive[0].name} es el único sobreviviente y gana la partida.`);
+    return;
+  }
+  const winner = alive.find((player) => countHealthyDifferentOrgans(player) >= 4);
   if (winner) {
     room.winner = winner.id;
-    addLog(room, `${winner.name} ha completado 4 órganos sanos y gana la partida.`);
+    addLog(room, `🏆 ${winner.name} ha completado 4 órganos sanos y gana la partida.`);
+  }
+}
+
+function damagePlayer(owner, room) {
+  owner.hp -= 5;
+  if (owner.hp <= 0) {
+    owner.hp = 0;
+    owner.eliminated = true;
+    addLog(room, `💀 ${owner.name} ha perdido toda la salud y queda eliminado.`);
   }
 }
 
@@ -108,6 +136,8 @@ function startRoom(room) {
   room.players.forEach((player) => {
     player.hand = [];
     player.organs = [];
+    player.hp = 30;
+    player.eliminated = false;
     drawToThree(player, room.deck, room.discard);
   });
 }
@@ -125,7 +155,9 @@ function getRoomState(room, playerId) {
       id: me.id,
       name: me.name,
       hand: me.hand,
-      organs: me.organs.map((o) => ({ ...o, statusText: organStatusName(o.level) }))
+      organs: me.organs.map((o) => ({ ...o, statusText: organStatusName(o.level) })),
+      hp: me.hp,
+      eliminated: me.eliminated
     },
     opponents: room.players
       .filter((p) => p.id !== playerId)
@@ -133,7 +165,9 @@ function getRoomState(room, playerId) {
         id: p.id,
         name: p.name,
         handCount: p.hand.length,
-        organs: p.organs.map((o) => ({ ...o, statusText: organStatusName(o.level) }))
+        organs: p.organs.map((o) => ({ ...o, statusText: organStatusName(o.level) })),
+        hp: p.hp,
+        eliminated: p.eliminated
       })),
     currentTurn: activePlayer(room).id,
     currentTurnName: activePlayer(room).name,
@@ -186,6 +220,7 @@ function playVirus(player, opponent, card, room, targetOwner, targetColor) {
     owner.organs = owner.organs.filter((item) => item !== organ);
     room.discard.push({ type: 'organ', color: organ.color, name: organ.name });
     addLog(room, `${player.name} destruye el órgano ${card.color} de ${owner.name}.`);
+    damagePlayer(owner, room);
   } else {
     addLog(room, `${player.name} infecta el órgano ${card.color} de ${owner.name}.`);
   }
@@ -244,6 +279,7 @@ function playSpecial(player, opponent, card, room, payload) {
           if (organ.level <= -2) {
             owner.organs = owner.organs.filter((item) => item !== organ);
             room.discard.push({ type: 'organ', color: organ.color, name: organ.name });
+            damagePlayer(owner, room);
           }
         }
       });
@@ -279,7 +315,7 @@ function performAction(room, playerId, payload) {
       addLog(room, '\uD83D\uDD12 Partida bloqueada — no se admiten más jugadores.');
     }
     drawToThree(player, room.deck, room.discard);
-    room.turnIndex = (room.turnIndex + 1) % room.players.length;
+    advanceTurn(room);
     return { ok: true };
   }
 
@@ -316,7 +352,7 @@ function performAction(room, playerId, payload) {
   checkWinner(room);
   if (!room.winner) {
     drawToThree(player, room.deck, room.discard);
-    room.turnIndex = (room.turnIndex + 1) % room.players.length;
+    advanceTurn(room);
   }
 
   return { ok: true };
@@ -522,8 +558,8 @@ const server = http.createServer(async (req, res) => {
 
       addLog(room, `${player.name} descarta toda su mano y roba 3 nuevas (pierde turno).`);
 
-      // Lose turn — advance to next player
-      room.turnIndex = (room.turnIndex + 1) % room.players.length;
+      // Lose turn — advance to next player (skip eliminated)
+      advanceTurn(room);
       return sendJson(res, 200, { ok: true });
     } catch (error) {
       return sendJson(res, 400, { error: 'No se pudo descartar.' });

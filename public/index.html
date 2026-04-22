@@ -55,6 +55,10 @@
           <span class="code-label">Código de sala</span>
           <div class="code-display">
             <span id="waitRoomCode" class="code-text">-----</span>
+            <button id="waitRoomCodeToggle" class="btn-copy" type="button" title="Mostrar código">
+              <span class="copy-icon">👁</span>
+              <span class="copy-label">Ver</span>
+            </button>
             <button class="btn-copy" onclick="copyRoomCode()" title="Copiar código">
               <span class="copy-icon">📋</span>
               <span class="copy-label">Copiar</span>
@@ -78,6 +82,7 @@
           <span class="topbar-label">SALA</span>
           <div class="topbar-code">
             <span id="roomIdText" class="topbar-value accent-green">-</span>
+            <button id="roomCodeToggle" class="btn-copy-sm" type="button" title="Mostrar código">👁</button>
             <button class="btn-copy-sm" onclick="copyRoomCode()" title="Copiar código">📋</button>
           </div>
         </div>
@@ -99,20 +104,18 @@
         </div>
         <button id="restartBtn" class="btn btn-outline hidden">&#8635; Nueva partida</button>
         <button id="leaveRoomBtn" class="btn btn-outline btn-leave" title="Salir de la sala">🚪 Salir</button>
-        <button id="muteBtn" class="btn btn-outline" title="Silenciar música">🔊</button>
+        <button id="chatToggleBtn" class="btn btn-outline" title="Ocultar chat">💬</button>
+        <div class="volume-wrap" id="volumeWrap">
+          <button id="muteBtn" class="btn btn-outline" title="Silenciar música">🔊</button>
+          <input id="volumeSlider" class="volume-slider" type="range" min="0" max="100" value="7" step="1" />
+          <span id="volumeLabel" class="volume-label">7%</span>
+        </div>
       </div>
 
       <div id="gameInfo" class="notice hidden"></div>
 
-      <div id="joinBanner" class="join-banner hidden">
-        <span class="join-banner-icon">🔓</span>
-        <span>Pueden unirse más jugadores &mdash; Código:</span>
-        <strong id="joinBannerCode">-----</strong>
-        <button class="btn-copy-sm" onclick="copyRoomCode()" title="Copiar">📋</button>
-      </div>
-
       <!-- 3-COLUMN LAYOUT -->
-      <div class="game-columns">
+      <div class="game-columns" id="gameColumns">
         <!-- LEFT SIDEBAR: Rules + Log -->
         <aside class="sidebar sidebar-left">
           <div class="sidebar-section rules-sidebar">
@@ -161,7 +164,11 @@
             <div class="arena-side arena-bottom">
               <div class="player-plate self-plate">
                 <span class="plate-label">Tú</span>
-                <h2 id="meTitle" class="plate-name">Tu laboratorio</h2>
+                <h2 id="meTitle" class="plate-name">Tu laboratorio <span id="myEliminatedBadge" class="eliminated-badge hidden">ELIMINADO</span></h2>
+                <div class="hp-bar-wrap" id="myHpBar">
+                  <span class="hp-label">❤️ <span id="myHpVal">30</span>/30</span>
+                  <div class="hp-bar"><div class="hp-bar-fill" id="myHpFill" style="width:100%"></div></div>
+                </div>
                 <button id="discardThreeBtn" class="btn btn-outline btn-discard-three hidden" title="Descarta tu mano y roba 3 nuevas (pierdes turno)">♻ Cambiar mano</button>
               </div>
               <div id="myHand" class="hand-fan"></div>
@@ -173,7 +180,7 @@
         </main>
 
         <!-- RIGHT SIDEBAR: Chat -->
-        <aside class="sidebar sidebar-right">
+        <aside class="sidebar sidebar-right" id="chatSidebar">
           <div class="sidebar-section chat-sidebar">
             <h3 class="sidebar-title">💬 Chat</h3>
             <div id="chatMessages" class="chat-messages"></div>

@@ -7,6 +7,7 @@ const state = {
   pendingSpecial: null,
   lastStateJSON: '',
   lastChatJSON: '',
+  roomCodeVisible: false,
   hasEnteredWaiting: false,
   hasEnteredGame: false
 };
@@ -21,9 +22,11 @@ const joinName = document.getElementById('joinName');
 const roomCode = document.getElementById('roomCode');
 const lobbyInfo = document.getElementById('lobbyInfo');
 const waitRoomCode = document.getElementById('waitRoomCode');
+const waitRoomCodeToggle = document.getElementById('waitRoomCodeToggle');
 const playersList = document.getElementById('playersList');
 const waitingHint = document.getElementById('waitingHint');
 const roomIdText = document.getElementById('roomIdText');
+const roomCodeToggle = document.getElementById('roomCodeToggle');
 const playerCountText = document.getElementById('playerCountText');
 const turnText = document.getElementById('turnText');
 const deckText = document.getElementById('deckText');
@@ -36,23 +39,43 @@ const meTitle = document.getElementById('meTitle');
 const gameInfo = document.getElementById('gameInfo');
 const dropSelf = document.getElementById('dropSelf');
 const discardZone = document.getElementById('discardZone');
-const joinBanner = document.getElementById('joinBanner');
-const joinBannerCode = document.getElementById('joinBannerCode');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const chatSendBtn = document.getElementById('chatSendBtn');
+const chatToggleBtn = document.getElementById('chatToggleBtn');
+const gameColumns = document.getElementById('gameColumns');
 const muteBtn = document.getElementById('muteBtn');
 const discardThreeBtn = document.getElementById('discardThreeBtn');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
 const leaveWaitingBtn = document.getElementById('leaveWaitingBtn');
+const volumeSlider = document.getElementById('volumeSlider');
+const volumeLabel = document.getElementById('volumeLabel');
+const volumeWrap = document.getElementById('volumeWrap');
 
 const MAX_PLAYERS = 6;
 
 /* ── Audio System ─────────────────────────── */
 let bgMusic = null;
 let isMuted = false;
+let savedVolume = 0.07;  // volumen guardado antes de silenciar
 let resultSoundPlayed = false;
-let currentVolume = 0.17;
+let currentVolume = 0.07;
+
+function volIconForLevel(pct) {
+  if (pct === 0) return '🔇';
+  if (pct < 35) return '🔈';
+  if (pct < 70) return '🔉';
+  return '🔊';
+}
+
+function applyVolume(volumePercent) {
+  const safe = Math.max(0, Math.min(100, Number(volumePercent) || 0));
+  currentVolume = safe / 100;
+  if (volumeLabel) volumeLabel.textContent = safe + '%';
+  if (volumeSlider && Number(volumeSlider.value) !== safe) volumeSlider.value = safe;
+  if (muteBtn) muteBtn.textContent = volIconForLevel(safe);
+  if (bgMusic) bgMusic.volume = currentVolume;
+}
 
 function initBgMusic() {
   if (bgMusic) return;
@@ -62,10 +85,15 @@ function initBgMusic() {
 }
 
 function toggleMute() {
-  isMuted = !isMuted;
-  if (muteBtn) muteBtn.textContent = isMuted ? '🔇' : '🔊';
-  if (bgMusic) {
-    bgMusic.volume = isMuted ? 0 : currentVolume;
+  if (currentVolume > 0) {
+    // silenciar: guardar volumen y bajar a 0
+    savedVolume = currentVolume;
+    isMuted = true;
+    applyVolume(0);
+  } else {
+    // restaurar volumen guardado
+    isMuted = false;
+    applyVolume(Math.round(savedVolume * 100));
   }
 }
 
@@ -74,13 +102,13 @@ function toggleMute() {
 function startBgMusic() {
   try {
     initBgMusic();
-    if (!isMuted) bgMusic.volume = currentVolume;
+    bgMusic.volume = currentVolume;
     bgMusic.play().catch(() => {});
   } catch (e) { /* ignore audio errors */ }
 }
 
 function playResultSound(type) {
-  if (resultSoundPlayed || isMuted) return;
+  if (resultSoundPlayed || currentVolume === 0) return;
   resultSoundPlayed = true;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -141,6 +169,13 @@ function playResultSound(type) {
 }
 
 if (muteBtn) muteBtn.addEventListener('click', toggleMute);
+
+/* ── Volume slider init ────────────────────────── */
+if (volumeSlider) {
+  volumeSlider.value = 7;
+  applyVolume(7);
+  volumeSlider.addEventListener('input', (e) => applyVolume(e.target.value));
+}
 
 /* ── Card descriptions ─────────────────────── */
 const CARD_DESCRIPTIONS = {
@@ -208,6 +243,28 @@ function saveSession(roomId, playerId) {
   localStorage.setItem('virus-playerId', playerId);
 }
 
+function getMaskedRoomCode(code) {
+  if (!code) return '-----';
+  return '*'.repeat(code.length);
+}
+
+function renderRoomCode(code) {
+  const displayCode = state.roomCodeVisible ? code : getMaskedRoomCode(code);
+  if (waitRoomCode) waitRoomCode.textContent = displayCode;
+  if (roomIdText) roomIdText.textContent = displayCode;
+
+  if (waitRoomCodeToggle) {
+    waitRoomCodeToggle.title = state.roomCodeVisible ? 'Ocultar código' : 'Mostrar código';
+    waitRoomCodeToggle.querySelector('.copy-icon').textContent = state.roomCodeVisible ? '🙈' : '👁';
+    waitRoomCodeToggle.querySelector('.copy-label').textContent = state.roomCodeVisible ? 'Ocultar' : 'Ver';
+  }
+
+  if (roomCodeToggle) {
+    roomCodeToggle.title = state.roomCodeVisible ? 'Ocultar código' : 'Mostrar código';
+    roomCodeToggle.textContent = state.roomCodeVisible ? '🙈' : '👁';
+  }
+}
+
 /* ── Copy room code ──────────────────────── */
 window.copyRoomCode = function () {
   const code = state.roomId;
@@ -237,6 +294,7 @@ async function createRoom() {
   const data = await request('/api/create-room', 'POST', { name });
   state.lastStateJSON = '';
   state.lastChatJSON = '';
+  state.roomCodeVisible = false;
   state.hasEnteredWaiting = false;
   state.hasEnteredGame = false;
   saveSession(data.roomId, data.playerId);
@@ -252,6 +310,7 @@ async function joinRoom() {
   const data = await request('/api/join-room', 'POST', { name, roomId });
   state.lastStateJSON = '';
   state.lastChatJSON = '';
+  state.roomCodeVisible = false;
   state.hasEnteredWaiting = false;
   state.hasEnteredGame = false;
   saveSession(data.roomId, data.playerId);
@@ -311,16 +370,26 @@ function renderRivalCards(count) {
 }
 
 /* ── Render: opponents area (dynamic) ──────── */
+function hpBar(hp) {
+  const pct = Math.max(0, Math.round((hp ?? 30) / 30 * 100));
+  const lowClass = pct <= 33 ? ' low' : '';
+  return `<div class="hp-bar-wrap">
+    <span class="hp-label">❤️ ${hp ?? 30}/30</span>
+    <div class="hp-bar"><div class="hp-bar-fill${lowClass}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
 function renderOpponents(opponents) {
   if (!opponents || opponents.length === 0) {
     opponentsArea.innerHTML = '<p class="muted small" style="text-align:center;padding:12px;">Esperando rivales...</p>';
     return;
   }
   opponentsArea.innerHTML = opponents.map((opp) => `
-    <div class="opponent-section">
+    <div class="opponent-section${opp.eliminated ? ' eliminated' : ''}">
       <div class="player-plate rival-plate">
         <span class="plate-label">Rival</span>
-        <h2 class="plate-name">💀 ${escapeHtml(opp.name)} · 🃏 ${opp.handCount}</h2>
+        <h2 class="plate-name">💀 ${escapeHtml(opp.name)} · 🃏 ${opp.handCount}${opp.eliminated ? '<span class="eliminated-badge">🚭 ELIMINADO</span>' : ''}</h2>
+        ${hpBar(opp.hp)}
       </div>
       <div class="rival-hand">${renderRivalCards(opp.handCount)}</div>
       <div class="drop-zone drop-zone-opponent" data-player-id="${opp.id}">
@@ -374,7 +443,7 @@ function renderState(data) {
       state.hasEnteredWaiting = true;
     }
 
-    waitRoomCode.textContent = data.roomId;
+    renderRoomCode(data.roomId);
     playersList.innerHTML = data.players.map((p, i) => `
       <div class="player-chip">
         <span class="chip-number">${i + 1}</span>
@@ -404,21 +473,40 @@ function renderState(data) {
   // Reset result sound when no winner (new game started)
   if (!data.winner) resultSoundPlayed = false;
 
-  const myTurn = data.currentTurn === data.me.id && !data.winner;
+  const myTurn = data.currentTurn === data.me.id && !data.winner && !data.me.eliminated;
 
-  roomIdText.textContent = data.roomId;
+  renderRoomCode(data.roomId);
   playerCountText.textContent = data.playerCount;
   turnText.textContent = data.winner ? 'Partida terminada' : data.currentTurnName;
   deckText.textContent = data.deckCount;
   discardText.textContent = data.discardCount;
   meTitle.textContent = `🧬 ${data.me.name}`;
 
-  // Join banner
-  if (data.canJoin) {
-    joinBanner.classList.remove('hidden');
-    joinBannerCode.textContent = data.roomId;
+  // My HP
+  const myHpVal = document.getElementById('myHpVal');
+  const myHpFill = document.getElementById('myHpFill');
+  if (myHpVal && myHpFill) {
+    const hp = data.me.hp ?? 30;
+    myHpVal.textContent = hp;
+    const pct = Math.max(0, Math.round(hp / 30 * 100));
+    myHpFill.style.width = pct + '%';
+    if (pct <= 33) myHpFill.classList.add('low'); else myHpFill.classList.remove('low');
+  }
+
+  const myEliminatedBadge = document.getElementById('myEliminatedBadge');
+  const selfPlate = document.querySelector('.self-plate');
+  if (data.me.eliminated) {
+    if (myEliminatedBadge) myEliminatedBadge.classList.remove('hidden');
+    if (selfPlate) selfPlate.classList.add('eliminated-self');
+    myHand.classList.add('hand-disabled');
+    dropSelf.classList.add('zone-disabled');
+    discardZone.classList.add('zone-disabled');
   } else {
-    joinBanner.classList.add('hidden');
+    if (myEliminatedBadge) myEliminatedBadge.classList.add('hidden');
+    if (selfPlate) selfPlate.classList.remove('eliminated-self');
+    myHand.classList.remove('hand-disabled');
+    dropSelf.classList.remove('zone-disabled');
+    discardZone.classList.remove('zone-disabled');
   }
 
   // Opponents (dynamic)
@@ -456,6 +544,8 @@ function renderState(data) {
   } else if (data.winner) {
     notice('☠️ Un rival ha ganado la partida.', true);
     playResultSound('lose');
+  } else if (data.me.eliminated) {
+    notice('☠️ Has sido eliminado. Solo puedes observar la partida.', true);
   } else if (myTurn) {
     notice('🔴 Es tu turno — arrastra una carta para jugar o descartar.');
   } else {
@@ -608,6 +698,10 @@ function setupOpponentDropZones() {
 /* ── Play / Discard ──────────────────────── */
 function doPlay(index, targetOwner, targetPlayerId) {
   if (!state.current) return;
+  if (state.current.me?.eliminated) {
+    notice('Estás eliminado y no puedes jugar cartas.', true);
+    return;
+  }
   const card = state.current.me.hand[index];
   if (!card) return;
 
@@ -638,6 +732,10 @@ function doPlay(index, targetOwner, targetPlayerId) {
 
 window.doDiscard = doDiscard;
 function doDiscard(index) {
+  if (state.current?.me?.eliminated) {
+    notice('Estás eliminado y no puedes descartar cartas.', true);
+    return;
+  }
   const payload = {
     roomId: state.roomId,
     playerId: state.playerId,
@@ -809,8 +907,29 @@ async function sendChat() {
   }
 }
 
+/* ── Chat toggle ────────────────────────── */
+if (chatToggleBtn && gameColumns) {
+  chatToggleBtn.addEventListener('click', () => {
+    const collapsed = gameColumns.classList.toggle('chat-hidden');
+    chatToggleBtn.textContent = collapsed ? '💬➕' : '💬';
+    chatToggleBtn.title = collapsed ? 'Mostrar chat' : 'Ocultar chat';
+  });
+}
+
 if (chatSendBtn) {
   chatSendBtn.addEventListener('click', sendChat);
+}
+if (waitRoomCodeToggle) {
+  waitRoomCodeToggle.addEventListener('click', () => {
+    state.roomCodeVisible = !state.roomCodeVisible;
+    renderRoomCode(state.roomId);
+  });
+}
+if (roomCodeToggle) {
+  roomCodeToggle.addEventListener('click', () => {
+    state.roomCodeVisible = !state.roomCodeVisible;
+    renderRoomCode(state.roomId);
+  });
 }
 if (chatInput) {
   chatInput.addEventListener('keydown', (e) => {
@@ -828,6 +947,10 @@ document.getElementById('restartBtn').addEventListener('click', async () => {
 
 /* ── Discard three (lose turn) ─────────── */
 async function discardThree() {
+  if (state.current?.me?.eliminated) {
+    notice('Estás eliminado y no puedes cambiar la mano.', true);
+    return;
+  }
   try {
     await request('/api/discard-three', 'POST', {
       roomId: state.roomId,
