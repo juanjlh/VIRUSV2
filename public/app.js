@@ -201,7 +201,8 @@ const CARD_DESCRIPTIONS = {
     transplant: 'Trasplante. Intercambia uno de tus órganos con uno del rival.',
     parasite: 'Parásito. Roba una carta aleatoria de la mano del rival.',
     mutation: 'Mutación. Cambia el color de uno de tus órganos a otro que no tengas.',
-    outbreak: 'Brote. Infecta TODOS los órganos no inmunes de TODOS los jugadores.'
+    outbreak: 'Brote. Infecta TODOS los órganos no inmunes de TODOS los jugadores.',
+    heal: 'Cura. Recupera 5 de vida (máximo 30).'
   }
 };
 
@@ -210,7 +211,7 @@ function getCardIcon(card) {
     organ:    { rojo: '🫀', azul: '🧠', verde: '🫁', amarillo: '🦴' },
     virus:    { rojo: '🦠', azul: '🧫', verde: '☣️', amarillo: '⚠️' },
     medicine: { rojo: '💉', azul: '💊', verde: '🩹', amarillo: '🏥' },
-    special:  { transplant: '🔄', parasite: '🪱', mutation: '🧬', outbreak: '💥', generic: '✨' }
+    special:  { transplant: '🔄', parasite: '🪱', mutation: '🧬', outbreak: '💥', heal: '💊', generic: '✨' }
   };
   if (card.type === 'special') return icons.special[card.effect] || '✨';
   return icons[card.type]?.[card.color] || '🃏';

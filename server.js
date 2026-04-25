@@ -39,6 +39,8 @@ function makeDeck() {
   deck.push({ type: 'special', effect: 'mutation', name: 'Mutación' });
   deck.push({ type: 'special', effect: 'outbreak', name: 'Brote' });
   deck.push({ type: 'special', effect: 'outbreak', name: 'Brote' });
+  deck.push({ type: 'special', effect: 'heal', name: 'Cura' });
+  deck.push({ type: 'special', effect: 'heal', name: 'Cura' });
 
   return shuffle(deck);
 }
@@ -65,7 +67,8 @@ function createPlayer(name, id) {
     hand: [],
     organs: [],
     hp: 30,
-    eliminated: false
+    eliminated: false,
+    turnsWithoutOrgan: 0
   };
 }
 
@@ -138,6 +141,7 @@ function startRoom(room) {
     player.organs = [];
     player.hp = 30;
     player.eliminated = false;
+    player.turnsWithoutOrgan = 0;
     drawToThree(player, room.deck, room.discard);
   });
 }
@@ -288,6 +292,13 @@ function playSpecial(player, opponent, card, room, payload) {
     return { ok: true };
   }
 
+  if (card.effect === 'heal') {
+    if (player.hp >= 30) return { ok: false, message: 'Ya tienes la vida al máximo.' };
+    player.hp = Math.min(30, player.hp + 5);
+    addLog(room, `${player.name} usa Cura y recupera 5 de vida (HP: ${player.hp}).`);
+    return { ok: true };
+  }
+
   return { ok: false, message: 'Carta especial no soportada.' };
 }
 
@@ -314,8 +325,17 @@ function performAction(room, playerId, payload) {
       room.locked = true;
       addLog(room, '\uD83D\uDD12 Partida bloqueada — no se admiten más jugadores.');
     }
-    drawToThree(player, room.deck, room.discard);
-    advanceTurn(room);
+    player.turnsWithoutOrgan += 1;
+    if (player.turnsWithoutOrgan >= 2) {
+      player.turnsWithoutOrgan = 0;
+      addLog(room, `\u26A0\uFE0F ${player.name} lleva 2 turnos sin colocar órgano y pierde 5 de vida.`);
+      damagePlayer(player, room);
+    }
+    checkWinner(room);
+    if (!room.winner) {
+      drawToThree(player, room.deck, room.discard);
+      advanceTurn(room);
+    }
     return { ok: true };
   }
 
@@ -348,6 +368,16 @@ function performAction(room, playerId, payload) {
   player.hand.splice(payload.handIndex, 1);
   if (card.type !== 'organ') {
     room.discard.push(card);
+  }
+  if (card.type === 'organ') {
+    player.turnsWithoutOrgan = 0;
+  } else {
+    player.turnsWithoutOrgan += 1;
+    if (player.turnsWithoutOrgan >= 2) {
+      player.turnsWithoutOrgan = 0;
+      addLog(room, `\u26A0\uFE0F ${player.name} lleva 2 turnos sin colocar órgano y pierde 5 de vida.`);
+      damagePlayer(player, room);
+    }
   }
   checkWinner(room);
   if (!room.winner) {
@@ -557,6 +587,15 @@ const server = http.createServer(async (req, res) => {
       drawToThree(player, room.deck, room.discard);
 
       addLog(room, `${player.name} descarta toda su mano y roba 3 nuevas (pierde turno).`);
+
+      player.turnsWithoutOrgan += 1;
+      if (player.turnsWithoutOrgan >= 2) {
+        player.turnsWithoutOrgan = 0;
+        addLog(room, `⚠️ ${player.name} lleva 2 turnos sin colocar órgano y pierde 5 de vida.`);
+        damagePlayer(player, room);
+      }
+      checkWinner(room);
+      if (room.winner) return sendJson(res, 200, { ok: true });
 
       // Lose turn — advance to next player (skip eliminated)
       advanceTurn(room);
